@@ -1,0 +1,69 @@
+{{- $relname := .Release.Name -}}
+{{- $namespace := .Release.Namespace -}}
+{{- $image := .Values.harvest.image -}}
+{{- range .Values.harvest.systems }}
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ $relname }}-harvest-{{ .name }}
+spec:
+  template:
+    metadata:
+      labels:
+        app: harvest
+    spec:
+      containers:
+      - name: harvest
+        image: {{ $image }}
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "50M"
+        env:
+          - name:  HARVEST_CLUSTER_NAME
+            value: {{ .name }}
+          - name:  HARVEST_HOSTNAME
+            value: {{ .hostname }}
+          - name:  HARVEST_GROUP
+            value: {{ .group }}
+          - name:  HARVEST_USERNAME
+            value: {{ .username }}
+          - name:  HARVEST_PASSWORD
+            value: {{ .password }}
+          - name:  HARVEST_GRAFANA_URL
+            value: http://{{ $relname }}-grafana/
+          - name:  HARVEST_GRAPHITE_SERVER
+            value: {{ $relname }}-graphite-tcp
+          - name:  HARVEST_GRAFANA_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: {{ $relname }}-grafana-api-key
+                key: api-key
+      initContainers:
+        - name: grafana-key
+          image: byrnedo/alpine-curl
+          command:
+            - sh
+            - -c
+            - |
+              apk add jq
+              while ! curl -m 5 http://{{ $relname }}-grafana/
+              do
+                sleep 5
+              done
+              KEY=`curl -f -s -X POST -H "Content-Type: application/json" -d '{"name":"harvest", "role": "Editor"}' http://admin:Netapp01@{{ $relname }}-grafana/api/auth/keys|jq -r .key`
+              [ "$KEY" == "" ] && exit 0
+              curl -vvv --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" -X POST -d '{
+                "apiVersion": "v1",
+                "kind": "Secret",
+                "metadata": {
+                  "name": "{{ $relname }}-grafana-api-key"
+                },
+                "type": "Opaque",
+                "data": {
+                  "api-key": "'`echo -n "$KEY"|base64|tr -d "\n"`'"
+                }
+              }' -H "Content-Type: application/json" https://kubernetes.default.svc/api/v1/namespaces/{{ $namespace }}/secrets
+
+---
+{{- end }}

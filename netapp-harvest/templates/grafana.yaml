@@ -1,0 +1,77 @@
+{{- if .Values.grafana.enabled -}}
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-grafana
+spec:
+  template:
+    metadata:
+      labels:
+        editor: vscode
+        app: grafana
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:latest
+        resources:
+          limits:
+            cpu: "200m"
+            memory: "100M"
+        volumeMounts:
+          - name: {{ .Release.Name }}-grafana-config
+            mountPath: /etc/grafana/provisioning/datasources
+        env:
+          - name:  GF_SECURITY_ADMIN_PASSWORD
+            value: Netapp01
+          {{- if .Values.grafana.ingress }}
+          - name:  GF_SERVER_ROOT_URL
+            value: {{ .Values.grafana.ingress.protocol }}://{{ .Values.grafana.ingress.hostname }}
+          {{- end }}
+      volumes:
+        - name: {{ .Release.Name }}-grafana-config
+          configMap:
+            name: {{ .Release.Name }}-grafana-config
+---
+{{- if .Values.grafana.ingress.enabled }}
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ .Release.Name }}-grafana
+spec:
+  selector:
+    app: grafana
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 80
+    targetPort: 3000
+{{ else }}
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ .Release.Name }}-grafana
+spec:
+  selector:
+    app: grafana
+  type: LoadBalancer
+  ports:
+  - name: http
+    port: 80
+    targetPort: 3000
+{{ end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-grafana-config
+data:
+  graphite.yaml: |
+    apiVersion: 1
+    datasources:
+    - name: Graphite
+      type: graphite
+      access: proxy
+      url: http://{{ .Release.Name }}-graphite-web/
+      isDefault: true
+      version: 1
+{{- end}}

@@ -1,0 +1,17 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Your release is named {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }}
+  $ helm get {{ .Release.Name }}
+
+{{if .Values.grafana.ingress.enabled}}
+You can connect to :
+{{.Values.grafana.ingress.protocol}}://{{.Values.grafana.ingress.hostname}}
+{{else}}
+You can find out Grafana IP address like this :
+
+kubectl get svc {{ .Release.Name }}-grafana --no-headers=true|awk '{ print $4 }'
+{{end}}

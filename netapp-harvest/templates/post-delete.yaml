@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-pre-delete
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-delete-policy: "hook-succeeded,hook-failed"
+spec:
+  template:
+    spec:
+      containers:
+      - name: {{ .Release.Name }}-post-delete
+        image: byrnedo/alpine-curl
+        command:
+          - sh
+          - -c
+          - |
+            curl --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" -X DELETE https://kubernetes.default.svc/api/v1/namespaces/{{- .Release.Namespace -}}/secrets/{{- .Release.Name -}}-grafana-api-key
+      restartPolicy: Never

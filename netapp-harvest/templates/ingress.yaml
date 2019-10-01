@@ -1,0 +1,15 @@
+{{- if .Values.grafana.ingress.enabled -}}
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-ingress
+spec:
+  rules:
+  - host: {{ .Values.grafana.ingress.hostname }}
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: {{ .Release.Name }}-grafana
+          servicePort: 80
+{{- end }}

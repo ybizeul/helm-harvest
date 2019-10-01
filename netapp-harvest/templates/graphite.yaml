@@ -1,0 +1,65 @@
+{{- if .Values.graphite.enabled -}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-graphite
+spec:
+  selector:
+    matchLabels:
+      app: graphite # has to match .spec.template.metadata.labels
+  serviceName: "graphite"
+  template:
+    metadata:
+      labels:
+        app: graphite # has to match .spec.selector.matchLabels
+    spec:
+      containers:
+      - name: graphite
+        image: graphiteapp/graphite-statsd
+        ports:
+        - containerPort: 80
+          name: web
+        - containerPort: 2003
+          protocol: UDP
+          name: graphite-udp
+        - containerPort: 2003
+          protocol: TCP
+          name: graphite-tcp
+        volumeMounts:
+        - name: data
+          mountPath: /opt/graphite/storage
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 10Gi
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ .Release.Name }}-graphite-web
+spec:
+  selector:
+    app:  graphite
+  type:  ClusterIP
+  ports:
+  - name:  http
+    port:  80
+    targetPort:  80
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ .Release.Name }}-graphite-tcp
+spec:
+  selector:
+    app: graphite
+  type: ClusterIP
+  ports:
+  - name: graphite-tcp
+    port: 2003
+    targetPort: 2003
+{{- end }}
